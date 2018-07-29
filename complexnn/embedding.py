@@ -15,9 +15,10 @@ from data import get_lookup_table,data_gen
 from data_reader import SSTDataReader
 from keras.layers import Embedding
 from multiply import ComplexMultiply
+from positive_unit_norm import PositiveUnitNorm
 
 def phase_embedding_layer(max_sequence_length, input_dim, embedding_dim = 1,trainable = True):
-    embedding_layer = Embedding(input_dim+1,
+    embedding_layer = Embedding(input_dim,
                             embedding_dim,
                             embeddings_initializer=RandomUniform(minval=0, maxval=2*math.pi),
                             input_length=max_sequence_length, trainable = trainable)
