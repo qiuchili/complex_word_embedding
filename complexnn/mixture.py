@@ -28,7 +28,7 @@ class ComplexMixture(Layer):
             raise ValueError('This layer should be called '
                              'on a list of 2 inputs.')
 
-        if len(input_shape) != 2:
+        if len(input_shape) != 3:
              raise ValueError('This layer should be called '
                              'on a list of 2 inputs.'
                               'Got ' + str(len(input_shape)) + ' inputs.')
@@ -40,11 +40,11 @@ class ComplexMixture(Layer):
 
         if not isinstance(inputs, list):
             raise ValueError('This layer should be called '
-                             'on a list of 2 inputs.')
+                             'on a list of 3 inputs.')
 
-        if len(inputs) != 2:
+        if len(inputs) != 3:
             raise ValueError('This layer should be called '
-                            'on a list of 2 inputs.'
+                            'on a list of 3 inputs.'
                             'Got ' + str(len(inputs)) + ' inputs.')
 
 
@@ -64,14 +64,23 @@ class ComplexMixture(Layer):
 
         output_imag = K.batch_dot(input_real_transpose, input_imag,axes = [2,3])-K.batch_dot(input_imag_transpose,input_real, axes = [2,3])  #shape: (None, 60, 300, 300)
 
-        output_real = K.mean(output_real, axis = 1, keepdims = False) #shape: (None, 300, 300)
+        weight = K.expand_dims(K.expand_dims(inputs[2]))
+        weight = K.repeat_elements(weight, output_real.shape[2], axis = 2)
+        weight = K.repeat_elements(weight, output_real.shape[2], axis = 3)
+        # output_real = K.permute_dimensions(output_real, (0,2,3,1))
+        # weight = K.permute_dimensions(weight, (0,2,1))
+        # print(weight.shape)
+        # print(output_real.shape)
 
-        output_imag = K.mean(output_imag, axis = 1, keepdims = False) #shape: (None, 300, 300)
 
+        output_real = output_real*weight #shape: (None, 300, 300)
+        output_real = K.sum(output_real, axis = 1)
 
+        # print(output_real.shape)
         # output_real = K.mean(input_real,axis = 1, keepdims = False)
-        # output_imag = K.mean(input_imag,axis = 1, keepdims = False)
-        # print(y.shape)
+        output_imag = output_imag*weight
+        output_imag = K.sum(output_imag, axis = 1)
+        # print(output_imag.shape)
         return [output_real, output_imag]
 
     def compute_output_shape(self, input_shape):
@@ -84,23 +93,24 @@ class ComplexMixture(Layer):
 def main():
     input_2 = Input(shape=(3,5), dtype='float')
     input_1 = Input(shape=(3,5), dtype='float')
-    [output_1, output_2] = ComplexMixture()([input_1, input_2])
+    weights = Input(shape = (3,), dtype = 'float')
+    [output_1, output_2] = ComplexMixture()([input_1, input_2, weights])
 
 
-    model = Model([input_1, input_2], [output_1, output_2])
+    model = Model([input_1, input_2, weights], [output_1, output_2])
     model.compile(loss='binary_crossentropy',
               optimizer='rmsprop',
               metrics=['accuracy'])
     model.summary()
 
-    x = np.random.random((3,3,5))
-    x_2 = np.random.random((3,3,5))
+    # x = np.random.random((3,3,5))
+    # x_2 = np.random.random((3,3,5))
 
 
-    print(x)
-    print(x_2)
-    output = model.predict([x,x_2])
-    print(output)
+    # print(x)
+    # print(x_2)
+    # output = model.predict([x,x_2])
+    # print(output)
 
 if __name__ == '__main__':
     main()

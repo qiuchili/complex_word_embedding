@@ -25,11 +25,11 @@ class ComplexSuperposition(Layer):
     def build(self, input_shape):
         if not isinstance(input_shape, list):
             raise ValueError('This layer should be called '
-                             'on a list of 2 inputs.')
+                             'on a list of 3 inputs.')
 
-        if len(input_shape) != 2:
+        if len(input_shape) != 3:
              raise ValueError('This layer should be called '
-                             'on a list of 2 inputs.'
+                             'on a list of 3 inputs.'
                               'Got ' + str(len(input_shape)) + ' inputs.')
 
         super(ComplexSuperposition, self).build(input_shape)  # Be sure to call this somewhere!
@@ -38,11 +38,11 @@ class ComplexSuperposition(Layer):
 
         if not isinstance(inputs, list):
             raise ValueError('This layer should be called '
-                             'on a list of 2 inputs.')
+                             'on a list of 3 inputs.')
 
-        if len(inputs) != 2:
+        if len(inputs) != 3:
             raise ValueError('This layer should be called '
-                            'on a list of 2 inputs.'
+                            'on a list of 3 inputs.'
                             'Got ' + str(len(inputs)) + ' inputs.')
 
 
@@ -53,9 +53,19 @@ class ComplexSuperposition(Layer):
         input_real = inputs[0]
         input_imag = inputs[1]
 
-        output_real = K.mean(input_real,axis = 1, keepdims = False)
-        output_imag = K.mean(input_imag,axis = 1, keepdims = False)
+        weight = K.expand_dims(inputs[2])
+        weight = K.repeat_elements(weight, input_real.shape[2], axis = 2)
+        print(input_real.shape)
+        print(weight.shape)
 
+        output_real = input_real*weight #shape: (None, 300, 300)
+        output_real = K.sum(output_real, axis = 1)
+
+        output_imag = input_imag*weight
+        output_imag = K.sum(output_imag, axis = 1)
+
+        print(output_imag.shape)
+        print(output_real.shape)
         # print(y.shape)
         return [output_real, output_imag]
 
@@ -70,10 +80,11 @@ class ComplexSuperposition(Layer):
 def main():
     input_2 = Input(shape=(3,5), dtype='float')
     input_1 = Input(shape=(3,5), dtype='float')
-    [output_1, output_2] = ComplexSuperposition()([input_1, input_2])
+    weights = Input(shape = (3,),dtype= 'float')
+    [output_1, output_2] = ComplexSuperposition()([input_1, input_2, weights])
 
 
-    model = Model([input_1, input_2], [output_1, output_2])
+    model = Model([input_1, input_2, weights], [output_1, output_2])
     model.compile(loss='binary_crossentropy',
               optimizer='rmsprop',
               metrics=['accuracy'])
