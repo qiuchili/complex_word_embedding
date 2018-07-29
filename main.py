@@ -41,8 +41,6 @@ def run_complex_embedding_network(lookup_table, max_sequence_length, network_typ
     if network_type.lower() == 'complex_mixture':
         [sentence_embedding_real, sentence_embedding_imag]= ComplexMixture(average_weights = True)([seq_embedding_real, seq_embedding_imag, weight_embedding])
 
-        sentence_embedding_real = Flatten()(sentence_embedding_real)
-        sentence_embedding_imag = Flatten()(sentence_embedding_imag)
 
     elif network_type.lower() == 'complex_superposition':
         [sentence_embedding_real, sentence_embedding_imag]= ComplexSuperposition(average_weights = True)([seq_embedding_real, seq_embedding_imag, weight_embedding])
@@ -51,8 +49,8 @@ def run_complex_embedding_network(lookup_table, max_sequence_length, network_typ
         print('Wrong input network type -- The default mixture network is constructed.')
         [sentence_embedding_real, sentence_embedding_imag]= ComplexMixture(average_weights = True)([seq_embedding_real, seq_embedding_imag, weight_embedding])
 
-        sentence_embedding_real = Flatten()(sentence_embedding_real)
-        sentence_embedding_imag = Flatten()(sentence_embedding_imag)
+    sentence_embedding_real = Flatten()(sentence_embedding_real)
+    sentence_embedding_imag = Flatten()(sentence_embedding_imag)
     # output = Complex1DProjection(dimension = embedding_dimension)([sentence_embedding_real, sentence_embedding_imag])
     predictions = ComplexDense(units = nb_classes, activation= activation, bias_initializer=Constant(value=-1), init_criterion = init_mode)([sentence_embedding_real, sentence_embedding_imag])
 
