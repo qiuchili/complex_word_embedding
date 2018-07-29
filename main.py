@@ -6,7 +6,7 @@ import pandas as pd
 sys.path.append('complexnn')
 
 from keras.models import Model, Input, model_from_json, load_model
-from keras.layers import Embedding, GlobalAveragePooling1D,Dense, Masking, Flatten,Dropout
+from keras.layers import Embedding, GlobalAveragePooling1D,Dense, Masking, Flatten,Dropout, Activation
 from embedding import phase_embedding_layer, amplitude_embedding_layer
 from multiply import ComplexMultiply
 from data import orthonormalized_word_embeddings,get_lookup_table, batch_gen,data_gen
@@ -33,20 +33,23 @@ def run_complex_embedding_network(lookup_table, max_sequence_length, network_typ
 
     amplitude_embedding = Dropout(dropout_rate)(amplitude_embedding_layer(np.transpose(lookup_table), max_sequence_length, trainable = embedding_trainable, random_init = random_init)(sequence_input))
 
+    weight_embedding = Embedding(lookup_table.shape[0], 1, trainable = False)(sequence_input)
+    weight_embedding = Activation('softmax')(weight_embedding)
+
     [seq_embedding_real, seq_embedding_imag] = ComplexMultiply()([phase_embedding, amplitude_embedding])
 
     if network_type.lower() == 'complex_mixture':
-        [sentence_embedding_real, sentence_embedding_imag]= ComplexMixture()([seq_embedding_real, seq_embedding_imag])
+        [sentence_embedding_real, sentence_embedding_imag]= ComplexMixture(average_weights = True)([seq_embedding_real, seq_embedding_imag, weight_embedding])
 
         sentence_embedding_real = Flatten()(sentence_embedding_real)
         sentence_embedding_imag = Flatten()(sentence_embedding_imag)
 
     elif network_type.lower() == 'complex_superposition':
-        [sentence_embedding_real, sentence_embedding_imag]= ComplexSuperposition()([seq_embedding_real, seq_embedding_imag])
+        [sentence_embedding_real, sentence_embedding_imag]= ComplexSuperposition(average_weights = True)([seq_embedding_real, seq_embedding_imag, weight_embedding])
 
     else:
         print('Wrong input network type -- The default mixture network is constructed.')
-        [sentence_embedding_real, sentence_embedding_imag]= ComplexMixture()([seq_embedding_real, seq_embedding_imag])
+        [sentence_embedding_real, sentence_embedding_imag]= ComplexMixture(average_weights = True)([seq_embedding_real, seq_embedding_imag, weight_embedding])
 
         sentence_embedding_real = Flatten()(sentence_embedding_real)
         sentence_embedding_imag = Flatten()(sentence_embedding_imag)
@@ -211,7 +214,8 @@ def evaluate(history, evaluation, eval_dir):
 
 if __name__ == '__main__':
     params = Params()
-    params.parse_config('config/config_SST_2_superposition.ini')
+    params.parse_config('config/config.ini')
+    print(params.network_type)
     # params.parseArgs()
     history, evaluation = run(params)
     evaluate(history, evaluation, params.eval_dir)

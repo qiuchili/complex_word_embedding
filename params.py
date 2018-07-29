@@ -59,7 +59,7 @@ class Params(object):
         if 'embedding_trainable' in config_common:
             self.embedding_trainable = bool(config_common['embedding_trainable'])
         if 'dropout_rate' in config_common:
-            self.network_type = float(config_common['dropout_rate'])
+            self.dropout_rate = float(config_common['dropout_rate'])
 
         if 'initial_mode' in config_common:
             self.initial_mode = config_common['initial_mode']

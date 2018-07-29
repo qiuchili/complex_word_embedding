@@ -8,17 +8,18 @@ import sys
 import os
 import keras.backend as K
 import math
+from mixture import ComplexMixture
 
 
 class ComplexSuperposition(Layer):
 
-    def __init__(self, **kwargs):
+    def __init__(self, average_weights = False,**kwargs):
         # self.output_dim = output_dim
-        self. trainable = False
+        self. average_weights = average_weights
         super(ComplexSuperposition, self).__init__(**kwargs)
 
     def get_config(self):
-        config = {'trainable': self.trainable}
+        config = {'average_weights': self.average_weights}
         base_config = super(ComplexSuperposition, self).get_config()
         return dict(list(base_config.items())+list(config.items()))
 
@@ -53,26 +54,42 @@ class ComplexSuperposition(Layer):
         input_real = inputs[0]
         input_imag = inputs[1]
 
-        weight = K.expand_dims(inputs[2])
-        weight = K.repeat_elements(weight, input_real.shape[2], axis = 2)
-        print(input_real.shape)
-        print(weight.shape)
+        if self.average_weights:
+            output_real = K.mean(input_real,axis = 1, keepdims = False)
+            output_imag = K.mean(input_imag,axis = 1, keepdims = False)
+        else:
 
-        output_real = input_real*weight #shape: (None, 300, 300)
-        output_real = K.sum(output_real, axis = 1)
+            weight = K.expand_dims(inputs[2])
+            weight = K.repeat_elements(weight, input_real.shape[2], axis =2)
 
-        output_imag = input_imag*weight
-        output_imag = K.sum(output_imag, axis = 1)
+            output_real = input_real*weight #shape: (None, 300, 300)
+            output_real = K.sum(output_real, axis = 1)
+            output_imag = input_imag*weight
+            output_imag = K.sum(output_imag, axis = 1)
 
-        print(output_imag.shape)
-        print(output_real.shape)
-        # print(y.shape)
-        return [output_real, output_imag]
+
+
+        output_real = K.expand_dims(output_real)
+        output_imag = K.expand_dims(output_imag)
+
+        output_real_transpose = K.permute_dimensions(output_real, (0,2,1))
+        output_imag_transpose = K.permute_dimensions(output_imag, (0,2,1))
+        # print(output_real.shape)
+        # print(output_real_transpose.shape)
+        # print(output_imag.shape)
+
+        output_r = K.batch_dot(output_real,output_real_transpose) + K.batch_dot(output_imag,output_imag_transpose)
+        output_i = K.batch_dot(output_imag,output_real_transpose) - K.batch_dot(output_real,output_imag_transpose)
+
+
+        print(output_r.shape)
+        print(output_i.shape)
+        return [output_r, output_i]
 
     def compute_output_shape(self, input_shape):
         # print(type(input_shape[1]))
         one_input_shape = list(input_shape[0])
-        one_output_shape = [one_input_shape[0], one_input_shape[2]]
+        one_output_shape = [one_input_shape[0], one_input_shape[2], one_input_shape[2]]
         return [tuple(one_output_shape), tuple(one_output_shape)]
 
 
@@ -81,7 +98,7 @@ def main():
     input_2 = Input(shape=(3,5), dtype='float')
     input_1 = Input(shape=(3,5), dtype='float')
     weights = Input(shape = (3,),dtype= 'float')
-    [output_1, output_2] = ComplexSuperposition()([input_1, input_2, weights])
+    [output_1, output_2] = ComplexSuperposition(average_weights = False)([input_1, input_2, weights])
 
 
     model = Model([input_1, input_2, weights], [output_1, output_2])
@@ -93,12 +110,9 @@ def main():
     x = np.random.random((3,3,5))
     x_2 = np.random.random((3,3,5))
 
-
-    print(x)
-    print(x_2)
-    output = model.predict([x,x_2])
+    weights = np.random.random((3,3))
+    output = model.predict([x,x_2, weights])
     print(output)
-
 
 
     # rng = numpy.random.RandomState(123)
