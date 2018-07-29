@@ -70,11 +70,17 @@ class ComplexMixture(Layer):
         # print(weight.shape)
         # print(output_real.shape)
         if self.average_weights:
-            output_real = K.mean(output_real, axis = 1, keepdims = False)
-            output_imag = K.mean(output_imag, axis = 1, keepdims = False)
+            output_r = K.mean(output_real, axis = 1, keepdims = False)
+            output_i = K.mean(output_imag, axis = 1, keepdims = False)
 
         else:
-            weight = K.expand_dims(K.expand_dims(inputs[2]))
+            #For embedding layer inputs[2] is (None, embedding_dim,1)
+            #For test inputs[2] is (None, embedding_dim)
+            if len(inputs[2].shape) == 2:
+
+                weight = K.expand_dims(K.expand_dims(inputs[2]))
+            else:
+                weight = K.expand_dims(inputs[2])
             weight = K.repeat_elements(weight, output_real.shape[2], axis = 2)
             weight = K.repeat_elements(weight, output_real.shape[2], axis = 3)
             output_real = output_real*weight #shape: (None, 300, 300)

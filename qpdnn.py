@@ -6,13 +6,14 @@ import pandas as pd
 sys.path.append('complexnn')
 
 from keras.models import Model, Input, model_from_json, load_model
-from keras.layers import Embedding, GlobalAveragePooling1D,Dense, Masking, Flatten,Dropout
+from keras.layers import Embedding, GlobalAveragePooling1D,Dense, Masking, Flatten,Dropout,Activation
 from embedding import phase_embedding_layer, amplitude_embedding_layer
 from multiply import ComplexMultiply
 from data import orthonormalized_word_embeddings,get_lookup_table, batch_gen,data_gen
 from mixture import ComplexMixture
 from data_reader import *
 from superposition import ComplexSuperposition
+from measurement import ComplexMeasurement
 from keras.preprocessing.sequence import pad_sequences
 from projection import Complex1DProjection
 from keras.utils import to_categorical
@@ -24,12 +25,12 @@ from params import Params
 import matplotlib.pyplot as plt
 
 
-def complex_embedding_network(lookup_table, max_sequence_length, network_type = 'complex_mixture', nb_classes = 2, random_init = True, embedding_trainable = True, dropout_rate = 0.0, init_mode = 'he', activation = 'sigmoid'):
+def qpdnn(lookup_table, max_sequence_length, network_type = 'complex_mixture', nb_classes = 2, measurement_units = 5, random_init = True, embedding_trainable = True, dropout_rate = 0.0, init_mode = 'he', activation = 'sigmoid'):
 
     embedding_dimension = lookup_table.shape[1]
     sequence_input = Input(shape=(max_sequence_length,), dtype='int32')
     weight_embedding = Embedding(lookup_table.shape[0], 1, trainable = True)(sequence_input)
-    weight_embedding = Activation(softmax)(weight_embedding)
+    weight_embedding = Activation('softmax')(weight_embedding)
 
     phase_embedding = Dropout(dropout_rate)(phase_embedding_layer(max_sequence_length, lookup_table.shape[0], embedding_dimension, trainable = embedding_trainable)(sequence_input))
 
@@ -40,9 +41,6 @@ def complex_embedding_network(lookup_table, max_sequence_length, network_type = 
     if network_type.lower() == 'complex_mixture':
         [sentence_embedding_real, sentence_embedding_imag]= ComplexMixture()([seq_embedding_real, seq_embedding_imag, weight_embedding])
 
-        sentence_embedding_real = Flatten()(sentence_embedding_real)
-        sentence_embedding_imag = Flatten()(sentence_embedding_imag)
-
     elif network_type.lower() == 'complex_superposition':
         [sentence_embedding_real, sentence_embedding_imag]= ComplexSuperposition()([seq_embedding_real, seq_embedding_imag, weight_embedding])
 
@@ -50,12 +48,9 @@ def complex_embedding_network(lookup_table, max_sequence_length, network_type = 
         print('Wrong input network type -- The default mixture network is constructed.')
         [sentence_embedding_real, sentence_embedding_imag]= ComplexMixture()([seq_embedding_real, seq_embedding_imag, weight_embedding])
 
-        sentence_embedding_real = Flatten()(sentence_embedding_real)
-        sentence_embedding_imag = Flatten()(sentence_embedding_imag)
-    # output = Complex1DProjection(dimension = embedding_dimension)([sentence_embedding_real, sentence_embedding_imag])
-    predictions = ComplexDense(units = nb_classes, activation= activation, bias_initializer=Constant(value=-1), init_criterion = init_mode)([sentence_embedding_real, sentence_embedding_imag])
+    probs = ComplexMeasurement(units = measurement_units)([sentence_embedding_real, sentence_embedding_imag])
 
-    output = GetReal()(predictions)
+    output =  Dense(units = nb_classes)(probs)
 
     model = Model(sequence_input, output)
 
@@ -69,19 +64,19 @@ def main():
     params.parse_config('config/config.ini')
     reader = data_reader_initialize(params.dataset_name,params.datasets_dir)
 
-    train_test_val= reader.create_batch(embedding_params = embedding_params,batch_size = -1)
+    # train_test_val= reader.create_batch(embedding_params = embedding_params,batch_size = -1)
 
-    training_data = train_test_val['train']
-    test_data = train_test_val['test']
-    validation_data = train_test_val['dev']
+    # training_data = train_test_val['train']
+    # test_data = train_test_val['test']
+    # validation_data = train_test_val['dev']
 
-    train_x, train_y = data_gen(training_data, max_sequence_length)
-    test_x, test_y = data_gen(test_data, max_sequence_length)
-    val_x, val_y = data_gen(validation_data, max_sequence_length)
+    # train_x, train_y = data_gen(training_data, max_sequence_length)
+    # test_x, test_y = data_gen(test_data, max_sequence_length)
+    # val_x, val_y = data_gen(validation_data, max_sequence_length)
 
-    train_y = to_categorical(train_y)
-    test_y = to_categorical(test_y)
-    val_y = to_categorical(val_y)
+    # train_y = to_categorical(train_y)
+    # test_y = to_categorical(test_y)
+    # val_y = to_categorical(val_y)
 
 
     if(params.wordvec_initialization == 'orthogonalize'):
@@ -100,12 +95,12 @@ def main():
     if not(params.wordvec_initialization == 'random'):
         random_init = False
 
-    model = complex_embedding_network()
+    model = qpdnn(lookup_table, max_sequence_length, nb_classes = reader.nb_classes, network_type = params.network_type, random_init = random_init, embedding_trainable = params.embedding_trainable, init_mode = params.init_mode, activation = params.activation)
     model.compile(loss = params.loss,
           optimizer = params.optimizer,
           metrics=['accuracy'])
     model.summary()
-    weights = model.get_weights()
+    # weights = model.get_weights()
 
 
 
